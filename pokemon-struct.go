@@ -272,16 +272,6 @@ type PokemonResponse struct {
 	} `json:"past_types"`
 }
 
-type PokemonListResponse struct {
-	Count    int     `json:"count"`
-	Next     *string `json:"next"`
-	Previous *string `json:"previous"`
-	Results  []struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
-	} `json:"results"`
-}
-
 type Pokemon struct {
 	Name      string
 	Height    int
@@ -290,9 +280,19 @@ type Pokemon struct {
 	Abilities []string
 }
 
+type PokemonListResponse struct {
+	Count    int         `json:"count"`
+	Next     interface{} `json:"next"`
+	Previous interface{} `json:"previous"`
+	Results  []struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	} `json:"results"`
+}
+
 type PokemonList struct {
 	Count    int
-	Next     string
-	Previous string
+	Next     interface{}
+	Previous interface{}
 	Results  []string
 }
