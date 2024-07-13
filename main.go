@@ -18,10 +18,13 @@ type Styles struct {
 
 	MainDisplayStyle lipgloss.Style
 	MainInputStyle   lipgloss.Style
+
+	DisplayHeaderStyle lipgloss.Style
+	DisplayBodyStyle   lipgloss.Style
 }
 
 type Model struct {
-	Sidebar string
+	Sidebar SidebarModel
 	Main    MainModel
 
 	Width  int
@@ -33,8 +36,13 @@ type Model struct {
 }
 
 type MainModel struct {
-	Display   string
+	Display   MainDisplay
 	TextInput textinput.Model
+}
+
+type MainDisplay struct {
+	Header string
+	Body   string
 }
 
 type PokemonMsg struct {
@@ -52,44 +60,74 @@ func (p PokemonErrorMsg) Error() string {
 func defaultStyles() *Styles {
 	return &Styles{
 		SidebarLayoutStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00ff00")).
-			Padding(1).
+			Foreground(lipgloss.Color("#aa00bb")).
 			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#00ff00")),
+			BorderForeground(lipgloss.Color("#11cc11")),
 
 		MainLayoutStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00ff00")).
-			Padding(1).
+			Foreground(lipgloss.Color("#aa00bb")).
 			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#00ff00")),
+			BorderForeground(lipgloss.Color("#11cc11")),
 
 		MainDisplayStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00ff00")).
-			Padding(1).
+			Foreground(lipgloss.Color("#aa00bb")).
 			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#00ff00")),
+			BorderForeground(lipgloss.Color("#11cc11")),
 
 		MainInputStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00ff00")).
-			Padding(1).
+			Foreground(lipgloss.Color("#aa00bb")).
 			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#00ff00")),
+			BorderForeground(lipgloss.Color("#11cc11")),
+
+		DisplayHeaderStyle: lipgloss.NewStyle().
+			PaddingRight(1).
+			PaddingLeft(1).
+			Bold(true).
+			Underline(true).
+			Foreground(lipgloss.Color("#cc3555")),
+
+		DisplayBodyStyle: lipgloss.NewStyle().
+			PaddingRight(1).
+			PaddingLeft(1).
+			PaddingTop(1).
+			Foreground(lipgloss.Color("#af7fef")),
+	}
+}
+
+func defaultSidebarStyle() *SidebarStyle {
+	return &SidebarStyle{
+		FocusedSelectedStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")),
+		FocusedUnselectedStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("#ff00ff")),
+		UnfocusedSelectedStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("#cc3555")),
+		UnfocusedUnselectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#aa00aa")),
 	}
 }
 
 func New() Model {
-	styles := defaultStyles()
 	ti := textinput.New()
 	ti.Placeholder = "Search for a pokemon"
-	ti.PromptStyle.Border(lipgloss.RoundedBorder(), true).BorderForeground(lipgloss.Color("#00ff00")).Padding(1)
+	ti.PromptStyle.Border(lipgloss.RoundedBorder(), true).BorderForeground(lipgloss.Color("#11cc11")).Padding(1)
+	ti.CharLimit = 64
 	ti.Focus()
-	return Model{
-		styles:  styles,
-		Sidebar: "This is the side bar",
-		Main: MainModel{
-			Display:   "Search for a pokemon",
-			TextInput: ti,
+
+	m := MainModel{
+		Display: MainDisplay{
+			Header: "Pokedex",
+			Body:   "Search for a pokemon",
 		},
+		TextInput: ti,
+	}
+
+	s := SidebarModel{
+		Routes:         []string{"Pokedex", "Moves", "Abilities", "Items", "Locations", "Type Chart"},
+		SelectedRouted: 0,
+		Styles:         defaultSidebarStyle(),
+	}
+
+	return Model{
+		styles:  defaultStyles(),
+		Sidebar: s,
+		Main:    m,
 	}
 }
 
@@ -110,22 +148,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
 		case "enter":
-			searchValue := m.Main.TextInput.Value()
-			if searchValue == "" {
-				break
-			}
-			m.Main.TextInput.SetValue("")
-			return m, func() tea.Msg {
-				pokemon, err := getPokemon(strings.ToLower(searchValue))
-				if err != nil {
-					return PokemonErrorMsg{Err: err}
+			if m.Main.TextInput.Focused() {
+				searchValue := m.Main.TextInput.Value()
+				if searchValue == "" {
+					break
 				}
-				return PokemonMsg{Pokemon: pokemon}
+				m.Main.TextInput.SetValue("")
+				return m, func() tea.Msg {
+					pokemon, err := getPokemon(strings.ToLower(searchValue))
+					if err != nil {
+						return PokemonErrorMsg{Err: err}
+					}
+					return PokemonMsg{Pokemon: pokemon}
+				}
+			}
+			if m.Sidebar.IsFocused {
+				if m.Sidebar.Routes[m.Sidebar.SelectedRouted] == "Pokedex" {
+					m.Main.TextInput.Focus()
+					m.Sidebar.IsFocused = false
+				}
+			}
+		case "tab":
+			if m.Main.TextInput.Focused() {
+				m.Main.TextInput.Blur()
+				m.Sidebar.IsFocused = true
 			}
 		}
 
 	case PokemonMsg:
-		m.Main.Display = fmt.Sprintf("Name: %s\nHeight: %d\nWeight: %d\nTypes: %s\nAbilities: %s",
+		m.Main.Display.Body = fmt.Sprintf("Name: %s\nHeight: %d\nWeight: %d\nTypes: %s\nAbilities: %s",
 			msg.Pokemon.Name,
 			msg.Pokemon.Height,
 			msg.Pokemon.Weight,
@@ -134,10 +185,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case PokemonErrorMsg:
-		m.Main.Display = msg.Err.Error()
+		m.Main.Display.Body = msg.Err.Error()
 	}
 
-	m.Main.TextInput, cmd = m.Main.TextInput.Update(msg)
+	if m.Main.TextInput.Focused() {
+		m.Main.TextInput, cmd = m.Main.TextInput.Update(msg)
+	}
+	if m.Sidebar.IsFocused {
+		var sidebarCmd tea.Cmd
+		var sidebarModel tea.Model
+		sidebarModel, sidebarCmd = m.Sidebar.Update(msg)
+		m.Sidebar = sidebarModel.(SidebarModel)
+		cmd = tea.Batch(cmd, sidebarCmd)
+	}
+
 	return m, cmd
 }
 
@@ -153,12 +214,22 @@ func (m Model) View() string {
 		lipgloss.Left,
 		lipgloss.JoinHorizontal(
 			lipgloss.Left,
-			m.styles.SidebarLayoutStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar),
+			/* SIDEBAR LAYOUT */
+			m.styles.SidebarLayoutStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar.View()),
+			/* MAIN LAYOUT */
 			m.styles.MainLayoutStyle.Height(m.Height-3).Width(m.Width*4/5-3).Render(
 				lipgloss.JoinVertical(
 					lipgloss.Left,
-					m.styles.MainDisplayStyle.Height(m.Height-12).Width(m.Width*4/5-9).Render(m.Main.Display),
-					m.styles.MainInputStyle.Width(m.Width*4/5-9).Render(m.Main.TextInput.View()),
+					/* MAIN DISPLAY */
+					m.styles.MainDisplayStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
+						lipgloss.JoinVertical(
+							lipgloss.Left,
+							m.styles.DisplayHeaderStyle.Render(m.Main.Display.Header),
+							m.styles.DisplayBodyStyle.Render(m.Main.Display.Body),
+						),
+					),
+					/* MAIN INPUT */
+					m.styles.MainInputStyle.Width(m.Width*4/5-5).Render(m.Main.TextInput.View()),
 				),
 			),
 		),
@@ -204,6 +275,50 @@ func getPokemon(name string) (Pokemon, error) {
 	return pokemon, nil
 }
 
+func getPokemonList(page int) (PokemonList, error) {
+	var POKEMON_API string
+	if page != 0 {
+		offset := page * 20
+		POKEMON_API = fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/?offset=%d&limit=20", offset)
+	} else {
+		POKEMON_API = "https://pokeapi.co/api/v2/pokemon/?limit=20"
+	}
+
+	c := http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	resp, err := c.Get(POKEMON_API)
+	if err != nil {
+		return PokemonList{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		if resp.StatusCode == 404 {
+			return PokemonList{}, fmt.Errorf("pokemon not found")
+		} else if resp.StatusCode == 429 {
+			return PokemonList{}, fmt.Errorf("too many requests")
+		}
+		return PokemonList{}, fmt.Errorf("status code: %d", resp.StatusCode)
+	}
+
+	var pokemonListResponse PokemonListResponse
+	err = json.NewDecoder(resp.Body).Decode(&pokemonListResponse)
+	if err != nil {
+		return PokemonList{}, err
+	}
+
+	var PokemonListResponse PokemonListResponse
+	err = json.NewDecoder(resp.Body).Decode(&PokemonListResponse)
+	if err != nil {
+		return PokemonList{}, err
+	}
+
+	pokemonList := formatPokemonList(pokemonListResponse)
+	return pokemonList, nil
+}
+
 func formatPokemon(pokemon PokemonResponse) Pokemon {
 	PokemonTypes := []string{}
 	for _, pokemonType := range pokemon.Types {
@@ -221,5 +336,19 @@ func formatPokemon(pokemon PokemonResponse) Pokemon {
 		Weight:    pokemon.Weight,
 		Types:     PokemonTypes,
 		Abilities: PokemonAbilities,
+	}
+}
+
+func formatPokemonList(pokemonListResponse PokemonListResponse) PokemonList {
+	PokemonListResults := []string{}
+	for _, pokemon := range pokemonListResponse.Results {
+		PokemonListResults = append(PokemonListResults, pokemon.Name)
+	}
+
+	return PokemonList{
+		Count:    pokemonListResponse.Count,
+		Next:     *pokemonListResponse.Next,
+		Previous: *pokemonListResponse.Previous,
+		Results:  PokemonListResults,
 	}
 }
