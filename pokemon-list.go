@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 )
 
@@ -29,11 +30,36 @@ func (i PokemonListItem) Title() string       { return i.title }
 func (i PokemonListItem) Description() string { return i.desc }
 func (i PokemonListItem) FilterValue() string { return i.title }
 
+type listKeyMap struct {
+	NextPage key.Binding
+	PrevPage key.Binding
+}
+
+func newListKeyMap() *listKeyMap {
+	return &listKeyMap{
+		PrevPage: key.NewBinding(
+			key.WithKeys("<-"),
+			key.WithHelp("<-", "Previous Page"),
+		),
+		NextPage: key.NewBinding(
+			key.WithKeys("->"),
+			key.WithHelp("->", "Next Page"),
+		),
+	}
+}
+
 func NewPokemonListModel() PokemonListModel {
 	items := []list.Item{}
+	listKeys := newListKeyMap()
 	pl := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	pl.SetShowStatusBar(false)
 	pl.SetShowTitle(false)
+	pl.AdditionalShortHelpKeys = func() []key.Binding {
+		return []key.Binding{
+			listKeys.NextPage,
+			listKeys.PrevPage,
+		}
+	}
 	return PokemonListModel{
 		PokemonList: pl,
 		Navigation: PokemonListNavigation{
