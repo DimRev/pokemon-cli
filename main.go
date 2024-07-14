@@ -125,34 +125,83 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
+
 		case "enter":
-			if m.Pokedex.TextInput.Focused() {
-				searchValue := m.Pokedex.TextInput.Value()
-				if searchValue == "" {
-					break
+
+			if m.Pokedex.isFocused {
+				if m.Pokedex.TextInput.Focused() {
+					searchValue := m.Pokedex.TextInput.Value()
+					if searchValue == "" {
+						break
+					}
+					m.Pokedex.TextInput.SetValue("")
+					return m, func() tea.Msg {
+						pokemon, err := getPokemon(strings.ToLower(searchValue))
+						if err != nil {
+							return PokemonErrorMsg{Err: err}
+						}
+						return PokemonMsg{Pokemon: pokemon}
+					}
 				}
-				m.Pokedex.TextInput.SetValue("")
+			}
+
+			if m.PokemonList.isFocused {
+				m.PokemonList.isFocused = false
+				m.Pokedex.isFocused = true
+				m.Sidebar.SelectedRouted = 0
+				m.Pokedex.TextInput.Focus()
+
 				return m, func() tea.Msg {
-					pokemon, err := getPokemon(strings.ToLower(searchValue))
+					selectedItem := m.PokemonList.PokemonList.SelectedItem()
+					pokemon, err := getPokemon(strings.ToLower(selectedItem.FilterValue()))
 					if err != nil {
 						return PokemonErrorMsg{Err: err}
 					}
 					return PokemonMsg{Pokemon: pokemon}
 				}
 			}
+
 			if m.Sidebar.IsFocused {
 				if m.Sidebar.Routes[m.Sidebar.SelectedRouted] == "Pokedex" {
+					m.Pokedex.isFocused = true
 					m.Pokedex.TextInput.Focus()
 					m.Sidebar.IsFocused = false
 				}
 				if m.Sidebar.Routes[m.Sidebar.SelectedRouted] == "Pokemon List" {
+					m.PokemonList.isFocused = true
 					m.Sidebar.IsFocused = false
+
 				}
 			}
 		case "tab":
-			if m.Pokedex.TextInput.Focused() {
-				m.Pokedex.TextInput.Blur()
+			if m.Pokedex.isFocused {
+				if m.Pokedex.TextInput.Focused() {
+					m.Pokedex.TextInput.Blur()
+					m.Sidebar.IsFocused = true
+				}
+			}
+			if m.PokemonList.isFocused {
 				m.Sidebar.IsFocused = true
+			}
+
+		case "left", "right":
+			if m.PokemonList.isFocused {
+				if msg.String() == "left" {
+					if m.PokemonList.Page-1 > 0 {
+						m.PokemonList.Page--
+					}
+				}
+				if msg.String() == "right" {
+					m.PokemonList.Page++
+				}
+				return m, func() tea.Msg {
+					pl, err := getPokemonList(m.PokemonList.Page)
+					if err != nil {
+						return PokemonErrorMsg{Err: err}
+					}
+					return PokemonListMsg{PokemonList: pl}
+				}
+
 			}
 		}
 
@@ -212,17 +261,7 @@ func (m Model) View() string {
 			/* SIDEBAR LAYOUT */
 			m.styles.SidebarLayoutStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar.View()),
 			/* MAIN LAYOUT */
-			m.styles.MainLayoutStyle.Height(m.Height-3).Width(m.Width*4/5-3).Render(
-				lipgloss.JoinVertical(
-					lipgloss.Left,
-					/* MAIN DISPLAY */
-					m.styles.MainDisplayStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
-						CurrentView(m),
-					),
-					/* MAIN INPUT */
-					m.styles.MainInputStyle.Width(m.Width*4/5-5).Render(m.Pokedex.TextInput.View()),
-				),
-			),
+			CurrentView(m),
 		),
 	)
 }
@@ -237,18 +276,37 @@ func main() {
 func CurrentView(m Model) string {
 	switch m.Sidebar.Routes[m.Sidebar.SelectedRouted] {
 	case "Pokedex":
-		return lipgloss.JoinVertical(
-			lipgloss.Left,
-			m.styles.DisplayHeaderStyle.Render(m.Pokedex.Display.Header),
-			m.styles.DisplayBodyStyle.Render(m.Pokedex.Display.Body),
+		return m.styles.MainLayoutStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				/* DISPLAY */
+				m.styles.MainDisplayStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
+					lipgloss.JoinVertical(
+						lipgloss.Left,
+						m.styles.DisplayHeaderStyle.Render(m.Pokedex.Display.Header),
+						m.styles.DisplayBodyStyle.Render(m.Pokedex.Display.Body),
+					),
+				),
+				/* INPUT */
+				m.styles.MainInputStyle.Width(m.Width*4/5-5).Render(m.Pokedex.TextInput.View()),
+			),
 		)
 	case "Pokemon List":
-		m.PokemonList.PokemonList.SetHeight(m.Height - 8)
-		m.PokemonList.PokemonList.SetWidth(m.Width*4/5 - 5)
+		m.PokemonList.PokemonList.SetHeight(m.Height - 5)
+		m.PokemonList.PokemonList.SetWidth(m.Width - 12)
 
-		return lipgloss.JoinVertical(
-			lipgloss.Left,
-			m.PokemonList.PokemonList.View(),
+		return m.styles.MainLayoutStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				/* LIST */
+				m.styles.MainDisplayStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
+					lipgloss.JoinVertical(
+						lipgloss.Left,
+						m.PokemonList.PokemonList.View(),
+						// m.styles.DisplayBodyStyle.Render(m.Pokedex.Display.Body),
+					),
+				),
+			),
 		)
 	}
 	return ""

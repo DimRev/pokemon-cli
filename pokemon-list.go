@@ -12,6 +12,8 @@ import (
 type PokemonListModel struct {
 	PokemonList list.Model
 	Navigation  PokemonListNavigation
+	isFocused   bool
+	Page        int
 }
 
 type PokemonListNavigation struct {
@@ -38,6 +40,8 @@ func NewPokemonListModel() PokemonListModel {
 			Next: struct{}{},
 			Prev: struct{}{},
 		},
+		isFocused: false,
+		Page:      0,
 	}
 }
 

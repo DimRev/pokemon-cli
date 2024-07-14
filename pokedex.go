@@ -13,6 +13,7 @@ import (
 type PokedexViewModel struct {
 	Display   PokedexDisplay
 	TextInput textinput.Model
+	isFocused bool
 }
 
 type PokedexDisplay struct {
@@ -33,6 +34,7 @@ func NewPokedexViewModel() PokedexViewModel {
 			Body:   "Search for a pokemon",
 		},
 		TextInput: ti,
+		isFocused: true,
 	}
 }
 
