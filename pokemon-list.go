@@ -46,7 +46,8 @@ func NewPokemonListModel() PokemonListModel {
 }
 
 func getPokemonList(page int) (PokemonList, error) {
-	const POKEMON_API = `https://pokeapi.co/api/v2/pokemon/`
+	offset := 20 * page
+	POKEMON_API := fmt.Sprintf(`https://pokeapi.co/api/v2/pokemon/?offset=%d&limit=20`, offset)
 
 	c := http.Client{
 		Timeout: time.Second * 10,

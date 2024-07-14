@@ -187,7 +187,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "left", "right":
 			if m.PokemonList.isFocused {
 				if msg.String() == "left" {
-					if m.PokemonList.Page-1 > 0 {
+					if m.PokemonList.Page > 0 {
 						m.PokemonList.Page--
 					}
 				}
