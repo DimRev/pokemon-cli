@@ -264,7 +264,14 @@ func (m Model) View() string {
 			lipgloss.JoinHorizontal(
 				lipgloss.Left,
 				/* SIDEBAR LAYOUT */
-				m.styles.FocusedBorderedStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar.View()),
+				m.styles.FocusedBorderedStyle.Height(m.Height-3).Width(m.Width/5).Render(
+					lipgloss.JoinVertical(
+						lipgloss.Left,
+						m.Sidebar.View(),
+						lipgloss.NewStyle().Height(m.Height-8).Render(""),
+						lipgloss.NewStyle().Foreground(lipgloss.Color("#333")).PaddingLeft(1).Render("Tab - focus sidebar\nEnter - Focus route\nctrl+c - Quit"),
+					),
+				),
 				/* MAIN LAYOUT */
 				CurrentView(m),
 			),
@@ -280,7 +287,14 @@ func (m Model) View() string {
 		lipgloss.JoinHorizontal(
 			lipgloss.Left,
 			/* SIDEBAR LAYOUT */
-			m.styles.UnfocusedBorderedStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar.View()),
+			m.styles.UnfocusedBorderedStyle.Height(m.Height-3).Width(m.Width/5).Render(
+				lipgloss.JoinVertical(
+					lipgloss.Left,
+					m.Sidebar.View(),
+					lipgloss.NewStyle().Height(m.Height-8).Render(""),
+					lipgloss.NewStyle().Foreground(lipgloss.Color("#333")).PaddingLeft(1).Render("Tab - focus sidebar\nEnter - Focus route\nctrl+c - Quit"),
+				),
+			),
 			/* MAIN LAYOUT */
 			CurrentView(m),
 		),
