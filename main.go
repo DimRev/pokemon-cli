@@ -10,14 +10,14 @@ import (
 )
 
 type Styles struct {
-	SidebarLayoutStyle lipgloss.Style
-	MainLayoutStyle    lipgloss.Style
+	UnfocusedBorderedStyle lipgloss.Style
+	FocusedBorderedStyle   lipgloss.Style
 
-	MainDisplayStyle lipgloss.Style
-	MainInputStyle   lipgloss.Style
+	DisplayHeaderFocusedStyle   lipgloss.Style
+	DisplayHeaderUnfocusedStyle lipgloss.Style
 
-	DisplayHeaderStyle lipgloss.Style
-	DisplayBodyStyle   lipgloss.Style
+	DisplayBodyFocusedStyle   lipgloss.Style
+	DisplayBodyUnfocusedStyle lipgloss.Style
 }
 
 type Model struct {
@@ -40,47 +40,50 @@ type Model struct {
 
 func defaultStyles() *Styles {
 	return &Styles{
-		SidebarLayoutStyle: lipgloss.NewStyle().
+		UnfocusedBorderedStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#330044")).
+			Border(lipgloss.RoundedBorder(), true).
+			BorderForeground(lipgloss.Color("#004400")),
+
+		FocusedBorderedStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#aa00bb")).
 			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#11cc11")),
+			BorderForeground(lipgloss.Color("#11ff11")),
 
-		MainLayoutStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#aa00bb")).
-			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#11cc11")),
-
-		MainDisplayStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#aa00bb")).
-			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#11cc11")),
-
-		MainInputStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#aa00bb")).
-			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(lipgloss.Color("#11cc11")),
-
-		DisplayHeaderStyle: lipgloss.NewStyle().
+		DisplayHeaderFocusedStyle: lipgloss.NewStyle().
 			PaddingRight(1).
 			PaddingLeft(1).
 			Bold(true).
 			Underline(true).
 			Foreground(lipgloss.Color("#cc3555")),
 
-		DisplayBodyStyle: lipgloss.NewStyle().
+		DisplayHeaderUnfocusedStyle: lipgloss.NewStyle().
+			PaddingRight(1).
+			PaddingLeft(1).
+			Bold(true).
+			Underline(true).
+			Foreground(lipgloss.Color("#551105")),
+
+		DisplayBodyFocusedStyle: lipgloss.NewStyle().
 			PaddingRight(1).
 			PaddingLeft(1).
 			PaddingTop(1).
 			Foreground(lipgloss.Color("#af7fef")),
+
+		DisplayBodyUnfocusedStyle: lipgloss.NewStyle().
+			PaddingRight(1).
+			PaddingLeft(1).
+			PaddingTop(1).
+			Foreground(lipgloss.Color("#3f003f")),
 	}
 }
 
 func defaultSidebarStyle() *SidebarStyle {
 	return &SidebarStyle{
-		FocusedSelectedStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")),
-		FocusedUnselectedStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("#ff00ff")),
-		UnfocusedSelectedStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("#cc3555")),
-		UnfocusedUnselectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#aa00aa")),
+		FocusedSelectedStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color("#ff2222")),
+		FocusedUnselectedStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("#ff22ff")),
+		UnfocusedSelectedStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color("#660000")),
+		UnfocusedUnselectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#660066")),
 	}
 }
 
@@ -251,6 +254,24 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
+	/* SIDEBAR FOCUSED */
+	if m.Sidebar.IsFocused {
+		return lipgloss.Place(
+			m.Width,
+			m.Height,
+			lipgloss.Top,
+			lipgloss.Left,
+			lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				/* SIDEBAR LAYOUT */
+				m.styles.FocusedBorderedStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar.View()),
+				/* MAIN LAYOUT */
+				CurrentView(m),
+			),
+		)
+	}
+
+	/* SIDEBAR UNFOCUSED */
 	return lipgloss.Place(
 		m.Width,
 		m.Height,
@@ -259,7 +280,7 @@ func (m Model) View() string {
 		lipgloss.JoinHorizontal(
 			lipgloss.Left,
 			/* SIDEBAR LAYOUT */
-			m.styles.SidebarLayoutStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar.View()),
+			m.styles.UnfocusedBorderedStyle.Height(m.Height-3).Width(m.Width/5).Render(m.Sidebar.View()),
 			/* MAIN LAYOUT */
 			CurrentView(m),
 		),
@@ -276,34 +297,69 @@ func main() {
 func CurrentView(m Model) string {
 	switch m.Sidebar.Routes[m.Sidebar.SelectedRouted] {
 	case "Pokedex":
-		return m.styles.MainLayoutStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
+		/* POKEDEX FOCUSED */
+		if !m.Sidebar.IsFocused {
+			return m.styles.FocusedBorderedStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
+				lipgloss.JoinVertical(
+					lipgloss.Left,
+					/* DISPLAY */
+					m.styles.FocusedBorderedStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
+						lipgloss.JoinVertical(
+							lipgloss.Left,
+							m.styles.DisplayHeaderFocusedStyle.Render(m.Pokedex.Display.Header),
+							m.styles.DisplayBodyFocusedStyle.Render(m.Pokedex.Display.Body),
+						),
+					),
+					/* INPUT */
+					m.styles.FocusedBorderedStyle.Width(m.Width*4/5-5).Render(m.Pokedex.TextInput.View()),
+				),
+			)
+		}
+		/* POKEDEX UNFOCUSED */
+		return m.styles.UnfocusedBorderedStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
 			lipgloss.JoinVertical(
 				lipgloss.Left,
 				/* DISPLAY */
-				m.styles.MainDisplayStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
+				m.styles.UnfocusedBorderedStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
 					lipgloss.JoinVertical(
 						lipgloss.Left,
-						m.styles.DisplayHeaderStyle.Render(m.Pokedex.Display.Header),
-						m.styles.DisplayBodyStyle.Render(m.Pokedex.Display.Body),
+						m.styles.DisplayHeaderUnfocusedStyle.Render(m.Pokedex.Display.Header),
+						m.styles.DisplayBodyUnfocusedStyle.Render(m.Pokedex.Display.Body),
 					),
 				),
 				/* INPUT */
-				m.styles.MainInputStyle.Width(m.Width*4/5-5).Render(m.Pokedex.TextInput.View()),
+				m.styles.UnfocusedBorderedStyle.Width(m.Width*4/5-5).Render(m.Pokedex.TextInput.View()),
 			),
 		)
 	case "Pokemon List":
 		m.PokemonList.PokemonList.SetHeight(m.Height - 5)
 		m.PokemonList.PokemonList.SetWidth(m.Width - 12)
 
-		return m.styles.MainLayoutStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
+		/* POKEMON LIST FOCUSED */
+		if !m.Sidebar.IsFocused {
+			return m.styles.FocusedBorderedStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
+				lipgloss.JoinVertical(
+					lipgloss.Left,
+					/* LIST */
+					m.styles.FocusedBorderedStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
+						lipgloss.JoinVertical(
+							lipgloss.Left,
+							m.PokemonList.PokemonList.View(),
+						),
+					),
+				),
+			)
+		}
+
+		/* POKEMON LIST UNFOCUSED */
+		return m.styles.UnfocusedBorderedStyle.Height(m.Height - 3).Width(m.Width*4/5 - 3).Render(
 			lipgloss.JoinVertical(
 				lipgloss.Left,
 				/* LIST */
-				m.styles.MainDisplayStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
+				m.styles.UnfocusedBorderedStyle.Height(m.Height-8).Width(m.Width*4/5-5).Render(
 					lipgloss.JoinVertical(
 						lipgloss.Left,
 						m.PokemonList.PokemonList.View(),
-						// m.styles.DisplayBodyStyle.Render(m.Pokedex.Display.Body),
 					),
 				),
 			),
